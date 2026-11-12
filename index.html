@@ -994,7 +994,7 @@ function spawn(){
 document.getElementById('goBtn').onclick=()=>{
   pick.name=nameInput.value.trim().slice(0,12); pick.showName=showName.checked;
   // 改名字：已經點過的燈，牌子上的名字跟著更新（每個人每隻動物仍是一盞）
-  const mine=lampDocs[myId]; if(shared&&!readOnly&&mine&&mine.nick!==(pick.name||'旅人')){ sheetRename((pick.name||'旅人').slice(0,12)).catch(()=>{}); }
+  const mine=lampDocs[myKey]; if(shared&&!readOnly&&mine&&mine.nick!==(pick.name||'旅人')){ sheetRename((pick.name||'旅人').slice(0,12)).catch(()=>{}); }
   try{localStorage.setItem('memorial-me',JSON.stringify(pick))}catch(e){}
   const first=!me; spawn(); document.getElementById('picker').classList.add('hide'); if(soundOn){ startAudio(); playBgm(); }
   if(first) followView(true);
@@ -1081,10 +1081,10 @@ const docDolls=d=>d&&(d.dolls||d.flowers);
 function offerList(type,aid){
   if(!shared){ const e=localOffer[type][aid]; return e?[{key:'local|'+type+'|'+aid,nick:pick.name||'你',kind:e.kind,at:e.at,me:true}]:[]; }
   const out=[]; for(const id in lampDocs){const d=lampDocs[id], src=type==='bloom'?d&&d.bloom:docDolls(d), e=src&&src[aid];
-    if(e) out.push({key:id+'|'+type+'|'+aid,nick:String(d.nick||'旅人').slice(0,12),kind:e.kind==='lion'?'lion':'elephant',at:+e.at||0,me:id===myId});}
+    if(e) out.push({key:id+'|'+type+'|'+aid,nick:String(d.nick||'旅人').slice(0,12),kind:e.kind==='lion'?'lion':'elephant',at:+e.at||0,me:id===myKey});}
   return out.sort((a,b)=>b.at-a.at);
 }
-const myOffer=(type,aid)=> shared&&!readOnly ? (type==='bloom'?lampDocs[myId]?.bloom?.[aid]:docDolls(lampDocs[myId])?.[aid]) : localOffer[type][aid];
+const myOffer=(type,aid)=> shared&&!readOnly ? (type==='bloom'?lampDocs[myKey]?.bloom?.[aid]:docDolls(lampDocs[myKey])?.[aid]) : localOffer[type][aid];
 const offerObjs=new Map();
 function refreshOffers(){
   const want=new Map();
@@ -1102,9 +1102,9 @@ function refreshOffers(){
 }
 async function saveOffer(type,aid,entry){
   let ok=false;
-  if(shared&&!readOnly){ const cur=lampDocs[myId]||{}; const body={...cur,nick:(pick.name||'旅人').slice(0,12),outfit:pick.outfit,lit:cur.lit||{}};
+  if(shared&&!readOnly){ const cur=lampDocs[myKey]||{}; const body={...cur,nick:(pick.name||'旅人').slice(0,12),outfit:pick.outfit,lit:cur.lit||{}};
     if(type==='bloom') body.bloom={...(cur.bloom||{}),[aid]:entry}; else { body.dolls={...(docDolls(cur)||{}),[aid]:entry}; delete body.flowers; }
-    try{ await sheetSave({type:type==='bloom'?'bloom':'doll',aid,kind:entry.kind},body); ok=true; }catch(e){ readOnly=true; } }
+    try{ await sheetSave({type:type==='bloom'?'bloom':'doll',aid,kind:entry.kind},body); ok=true; }catch(e){ if(e&&e.soft) throw e; readOnly=true; } }
   if(!ok){ localOffer[type][aid]=entry; try{localStorage.setItem('memorial-offer',JSON.stringify(localOffer))}catch(e){} }
   return ok;
 }
@@ -1334,25 +1334,25 @@ function chaseStep(dt){
 // 沒有登入或沒有權限時，退回只存在這台裝置。
 let localLit={}; try{const o=JSON.parse(localStorage.getItem('memorial-lit')||'{}');for(const k in o)localLit[k]=o[k]===true?{at:0,msg:''}:o[k];}catch(e){}
 function saveLocal(){try{localStorage.setItem('memorial-lit',JSON.stringify(localLit))}catch(e){}}
-let lampDocs={}, myId=null, shared=false, readOnly=false;
+let lampDocs={}, myId=null, myKey='?', shared=false, readOnly=false;   // myId＝真正的訪客編號（只存在自己的裝置）；myKey＝對外的代號
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function litList(aid){
   if(!shared) return localLit[aid]?[{key:'local:'+aid,nick:pick.name||'你',msg:localLit[aid].msg,at:localLit[aid].at,me:true}]:[];
-  const out=[]; for(const id in lampDocs){const d=lampDocs[id],e=d&&d.lit&&d.lit[aid]; if(e) out.push({key:id+':'+aid,nick:String(d.nick||'旅人').slice(0,12),msg:String(e.msg||'').slice(0,40),at:+e.at||0,me:id===myId});}
+  const out=[]; for(const id in lampDocs){const d=lampDocs[id],e=d&&d.lit&&d.lit[aid]; if(e) out.push({key:id+':'+aid,nick:String(d.nick||'旅人').slice(0,12),msg:String(e.msg||'').slice(0,40),at:+e.at||0,me:id===myKey});}
   return out.sort((a,b)=>b.at-a.at);
 }
 let localWish=null; try{localWish=JSON.parse(localStorage.getItem('memorial-wish')||'null');}catch(e){}
 function wishList(){
   if(!shared) return localWish?[{key:'local:wish',nick:pick.name||'你',msg:localWish.msg,at:localWish.at,me:true}]:[];
-  const out=[]; for(const id in lampDocs){const d=lampDocs[id],e=d&&d.wish; if(e&&e.msg) out.push({key:id+':wish',nick:String(d.nick||'旅人').slice(0,12),msg:String(e.msg).slice(0,50),at:+e.at||0,me:id===myId});}
+  const out=[]; for(const id in lampDocs){const d=lampDocs[id],e=d&&d.wish; if(e&&e.msg) out.push({key:id+':wish',nick:String(d.nick||'旅人').slice(0,12),msg:String(e.msg).slice(0,50),at:+e.at||0,me:id===myKey});}
   return out.sort((a,b)=>b.at-a.at);
 }
-const myWish=()=> shared&&!readOnly ? lampDocs[myId]?.wish : localWish;
+const myWish=()=> shared&&!readOnly ? lampDocs[myKey]?.wish : localWish;
 async function hangWish(msg){
   msg=(msg||'').trim().slice(0,50); if(!msg){ toast('先寫幾個字再掛上去喔'); const b=document.getElementById('wishBtn'); if(b) b.disabled=false; return; }
   const entry={at:Date.now(),msg}; let ok=false;
-  if(shared&&!readOnly){ const cur=lampDocs[myId]||{}; const body={...cur,nick:(pick.name||'旅人').slice(0,12),outfit:pick.outfit,lit:cur.lit||{},wish:entry};
-    try{ await sheetSave({type:'wish',aid:'tree',msg},body); ok=true; }catch(e){ readOnly=true; } }
+  if(shared&&!readOnly){ const cur=lampDocs[myKey]||{}; const body={...cur,nick:(pick.name||'旅人').slice(0,12),outfit:pick.outfit,lit:cur.lit||{},wish:entry};
+    try{ await sheetSave({type:'wish',aid:'tree',msg},body); ok=true; }catch(e){ if(e&&e.soft) throw e; readOnly=true; } }
   if(!ok){ localWish=entry; try{localStorage.setItem('memorial-wish',JSON.stringify(entry))}catch(e){} }
   toast('🎋 你的祈福牌掛上去了'+(ok?'':'（只存在這台裝置）')); if(ok) mpEvent('wish','tree'); closeWish(); refreshLamps(); if(me) doAction('pray');
 }
@@ -1432,11 +1432,13 @@ function showWish(e){
   document.getElementById('lcGo').style.display='none';
   document.getElementById('lcard').classList.remove('hide');
 }
-const myEntry=aid=> shared&&!readOnly ? (lampDocs[myId]?.lit?.[aid]) : localLit[aid];
+const myEntry=aid=> shared&&!readOnly ? (lampDocs[myKey]?.lit?.[aid]) : localLit[aid];
 // 共享資料存在 Google 試算表（SHEET_API 在 data.js 最上面）。試算表一列＝一個人對一隻動物做的一件事，
 // 讀進來後組回「每人一份」：{nick, outfit, lit:{aid:{at,msg}}, bloom:{aid:{at}}, dolls:{aid:{kind,at}}}
 try{ myId=localStorage.getItem('memorial-uid'); if(!myId){ myId='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); localStorage.setItem('memorial-uid',myId); } }catch(e){ myId='u'+Math.random().toString(36).slice(2,12); }
 let lastWrite=0;
+const myKeyReady=(async()=>{ try{ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('memorial|'+myId));
+  myKey=[...new Uint8Array(b).slice(0,8)].map(x=>x.toString(16).padStart(2,'0')).join(''); }catch(e){} })();
 function rowsToDocs(rows){ const o={};
   for(const r of rows||[]){ const uid=String(r.uid||''); if(!uid) continue; const at=+r.at||0;
     const d=o[uid]||(o[uid]={nick:'旅人',outfit:'',lit:{},bloom:{},dolls:{},_at:0});
@@ -1449,24 +1451,31 @@ function rowsToDocs(rows){ const o={};
 async function sheetLoad(){ if(!SHEET_API) return; const started=Date.now();
   try{ const r=await fetch(SHEET_API,{cache:'no-store'}); const j=await r.json(); if(!j||!Array.isArray(j.rows)) return;
     if(started<lastWrite) return;   // 抓的途中自己剛寫過，這份可能是舊的，等下一輪
-    const o=rowsToDocs(j.rows); if(lampDocs[myId]&&!o[myId]) o[myId]=lampDocs[myId];
+    const o=rowsToDocs(j.rows); if(lampDocs[myKey]&&!o[myKey]) o[myKey]=lampDocs[myKey];
     shared=true; lampDocs=o; refreshLamps(); }catch(e){} }
 async function sheetPost(obj){
   const r=await fetch(SHEET_API,{method:'POST',body:JSON.stringify(obj)});   // 不設 Content-Type，避免跨網域預檢
-  const j=await r.json(); if(!j||!j.ok) throw new Error(j&&j.error||'save_failed'); return j; }
+  const j=await r.json();
+  if(j&&!j.ok&&(j.error==='no_link'||j.error==='rate_limited')){
+    toast(j.error==='no_link'?'留言裡不能放網址或聯絡方式喔':'送得有點快，休息一下再試試看');
+    setTimeout(()=>{ if(current>=0) render(current); if(!wishView.classList.contains('hide')) openWish(); },0);
+    const err=new Error(j.error); err.soft=true; throw err; }
+  if(!j||!j.ok) throw new Error(j&&j.error||'save_failed');
+  if(j.held) setTimeout(()=>toast('🕊️ 內容會在小編確認後顯示'),3400);
+  return j; }
 async function sheetSave(row,body){
   await sheetPost({...row,uid:myId,nick:body.nick,outfit:body.outfit});
-  lastWrite=Date.now(); lampDocs={...lampDocs,[myId]:body}; }
+  lastWrite=Date.now(); lampDocs={...lampDocs,[myKey]:body}; }
 async function sheetRename(nick){ await sheetPost({action:'rename',uid:myId,nick}); lastWrite=Date.now();
-  if(lampDocs[myId]) lampDocs={...lampDocs,[myId]:{...lampDocs[myId],nick}}; refreshLamps(); }
-if(SHEET_API){ sheetLoad(); setInterval(()=>{ if(!document.hidden) sheetLoad(); },20000);
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) sheetLoad(); }); }
+  if(lampDocs[myKey]) lampDocs={...lampDocs,[myKey]:{...lampDocs[myKey],nick}}; refreshLamps(); }
+if(SHEET_API) myKeyReady.then(()=>{ sheetLoad(); setInterval(()=>{ if(!document.hidden) sheetLoad(); },20000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) sheetLoad(); }); });
 async function light(aid,msg,edit){
   const entry={at:Date.now(),msg:(msg||'').trim().slice(0,40)};
   let ok=false;
-  if(shared&&!readOnly){ const cur=lampDocs[myId];
+  if(shared&&!readOnly){ const cur=lampDocs[myKey];
     const body={...(cur||{}),nick:(pick.name||'旅人').slice(0,12),outfit:pick.outfit,lit:{...((cur&&cur.lit)||{}),[aid]:entry}};
-    try{ await sheetSave({type:'lantern',aid,msg:entry.msg},body); ok=true; }catch(e){ readOnly=true; }
+    try{ await sheetSave({type:'lantern',aid,msg:entry.msg},body); ok=true; }catch(e){ if(e&&e.soft) throw e; readOnly=true; }
   }
   if(!ok){ localLit[aid]=entry; saveLocal(); }
   const a=ANIMALS.find(x=>x.id===aid);
@@ -1657,7 +1666,8 @@ function mpSend(force){
 }
 function mpEvent(type,aid){ if(!MP.on) return;
   MP.db.push(MP.db.ref(MP.d,`rooms/${MP.room}/events`),{uid:MP.uid,nick:(pick.name||'旅人').slice(0,12),type,aid:aid||'',at:Date.now()}).catch(()=>{}); }
-function mpShowEvent(v){ const a=ANIMALS.find(x=>x.id===v.aid), n=v.nick||'旅人';
+const mpLastToast={};
+function mpShowEvent(v){ const now=Date.now(); if(now-(mpLastToast[v.uid]||0)<5000) return; mpLastToast[v.uid]=now; const a=ANIMALS.find(x=>x.id===v.aid), n=v.nick||'旅人';
   const t={lantern:`🏮 ${n} 為${a?a.name:''}點了一盞燈`, bloom:`💐 ${n} 為${a?a.name:''}獻上一束花`, doll:`🧸 ${n} 為${a?a.name:''}獻上小偶`, wish:`🎋 ${n} 在祈福樹掛上祈福牌`}[v.type];
   if(t) toast(t); }
 const lookKey=v=>[v.outfit,v.hat,v.hair,v.bag,v.camera,v.glasses].join('|');
