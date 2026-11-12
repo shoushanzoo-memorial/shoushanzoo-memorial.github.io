@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".read": "auth != null && $room.matches(/^room-[0-9]{1,2}$/)",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && $room.matches(/^room-[0-9]{1,2}$/) && (auth.uid === $uid || (!newData.exists() && data.child('at').val() < now - 120000))",
+            ".validate": "newData.hasChildren(['nick','x','z','at']) && newData.child('nick').isString() && newData.child('nick').val().length <= 12 && newData.child('x').isNumber() && newData.child('z').isNumber() && newData.child('at').isNumber()"
+          }
+        },
+        "events": {
+          ".indexOn": ["at"],
+          "$eid": {
+            ".write": "auth != null && $room.matches(/^room-[0-9]{1,2}$/) && ((!data.exists() && newData.child('uid').val() === auth.uid) || (!newData.exists() && data.child('at').val() < now - 600000))",
+            ".validate": "newData.hasChildren(['uid','type','at']) && newData.child('type').isString() && newData.child('type').val().length <= 10 && (!newData.child('nick').exists() || newData.child('nick').val().length <= 12)"
+          }
+        }
+      }
+    }
+  }
+}

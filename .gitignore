@@ -1,0 +1,9 @@
+__pycache__/
+*.bak
+Thumbs.db
+.DS_Store
+apps-script/.clasp.json
+_test.html
+
+# 交接文件只留在本機，不公開
+CLAUDE.md
