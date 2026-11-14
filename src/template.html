@@ -491,9 +491,9 @@ ANIMALS.forEach((a,i)=>{
   const LX=.95, LZ=-1.05; // 燈柱在石座斜後方，兩側留給花和小偶
   const post=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,1.6,6),new THREE.MeshStandardMaterial({color:'#4a3b2e'})); post.position.set(LX,.8,LZ); g.add(post);
   const lampMat=new THREE.MeshStandardMaterial({color:'#ffdca0',emissive:'#ffb347',emissiveIntensity:.25});
-  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.38,.46,.38),lampMat); lamp.position.set(LX,1.75,LZ); g.add(lamp);
+  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.38,.46,.38),lampMat); lamp.position.set(LX,1.75,LZ); lamp.userData.keep=true; g.add(lamp);   // 每站各自閃爍，不合併
   const cap=new THREE.Mesh(new THREE.ConeGeometry(.34,.25,4),new THREE.MeshStandardMaterial({color:'#4a3b2e'})); cap.position.set(LX,2.1,LZ); cap.rotation.y=Math.PI/4; g.add(cap);
-  const pl=new THREE.PointLight('#ffb347',.6,6,2); pl.position.set(LX,1.75,LZ); g.add(pl);
+  const pl={intensity:0};   // 原本是真的點光源；為了效能拿掉，燈籠發光由 lampMat 的自發光表現
   // 解說卡改成固定的立牌，立在石座後方、面向島的中心
   const card=new THREE.Mesh(new THREE.PlaneGeometry(1.6,2.12),new THREE.MeshBasicMaterial({map:cardTexture(a),transparent:true}));
   card.position.set(0,2.05,-.62); card.userData.idx=i; g.add(card); clickables.push(card);
@@ -501,7 +501,7 @@ ANIMALS.forEach((a,i)=>{
   [-.55,.55].forEach(px=>{const p=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.7,6),new THREE.MeshStandardMaterial({color:'#6b5a48'}));p.position.set(px,.68,-.66);g.add(p);});
   // 石座上：該動物的小石像，面向島的中心
   const statue=makeStatue(a.id); statue.position.set(0,.35,.28); g.add(statue);
-  scene.add(g); const sprite=card;
+  scene.add(g); STATIC.push(g); const sprite=card;   // 石座、石像、立牌支架不會動，稍後合併（照片卡和燈保留）
   colliders.push({x,z,r:1.35});
   const approach=new THREE.Vector3(x,0,z).multiplyScalar((R-2.1)/R);
   const fwd=new THREE.Vector3(-x,0,-z).normalize(), right=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0));
@@ -621,6 +621,7 @@ function refreshWishes(){
 /* ---------- 祈福樹下的小造景：圍籬、小花、蝴蝶、晚上的螢火蟲，和一塊祈福立牌 ---------- */
 const FENCE_R=3.4, SIGN=new THREE.Vector3(0,0,FENCE_R+.35), SIGN_FRONT=new THREE.Vector3(0,0,FENCE_R+1.6);
 colliders[0].r=FENCE_R;
+const __fenceStart=scene.children.length;
 { const postM=new THREE.MeshStandardMaterial({color:'#8a6a4a',roughness:.9}), railM=new THREE.MeshStandardMaterial({color:'#a8865f',roughness:.9});
   const N=22, gap=Math.PI/2;   // 正前方（+z）留一個開口給立牌
   const angs=[]; for(let k=0;k<=N;k++){ const a=gap+.32+k*(Math.PI*2-.64)/N; angs.push(a); }
@@ -636,6 +637,7 @@ colliders[0].r=FENCE_R;
     f.position.set(Math.cos(a)*r,.12+Math.random()*.08,Math.sin(a)*r); scene.add(f);
     if(k%2===0){ const st=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.14,4),new THREE.MeshStandardMaterial({color:'#5f8a4a'})); st.position.set(f.position.x,.06,f.position.z); scene.add(st); } }
 }
+STATIC.push(...scene.children.slice(__fenceStart));
 // 祈福立牌：木頭看板＋紅色流蘇，點了會跳出填寫視窗
 function signTexture(){
   const c=document.createElement('canvas'); c.width=512; c.height=360; const g=c.getContext('2d');
@@ -846,7 +848,7 @@ const benches=[];
   const b=new THREE.Group(); b.position.set(x,0,z); b.lookAt(0,0,0);
   const seat=new THREE.Mesh(new THREE.BoxGeometry(1.5,.12,.5),new THREE.MeshStandardMaterial({color:'#a89a86',flatShading:true})); seat.position.y=.42; seat.castShadow=true; b.add(seat);
   [-.55,.55].forEach(px=>{const l=new THREE.Mesh(new THREE.BoxGeometry(.18,.4,.42),new THREE.MeshStandardMaterial({color:'#8d8172'}));l.position.set(px,.2,0);b.add(l);});
-  scene.add(b); colliders.push({x,z,r:.75}); benches.push({pos:new THREE.Vector3(x,0,z),face:Math.atan2(-x,-z),seat:new THREE.Vector3(x*(r-.12)/r,0,z*(r-.12)/r)});
+  scene.add(b); STATIC.push(b); colliders.push({x,z,r:.75}); benches.push({pos:new THREE.Vector3(x,0,z),face:Math.atan2(-x,-z),seat:new THREE.Vector3(x*(r-.12)/r,0,z*(r-.12)/r)});
 });
 
 /* ---------- 獻花（花束）與獻偶（小象、小獅公仔），兩種分開 ---------- */
@@ -1531,6 +1533,25 @@ function mpAnimate(dt,t){
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);labelR.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
 addEventListener('resize',resize); resize();
 const clock=new THREE.Clock(); let nearIdx=-1, walkT=0, mmT=0;
+// 合併不會動的物件：同一種顏色／材質的全部併成一個網格，一次畫完（外觀不變）
+function mergeStatic(roots){
+  const groups=new Map();
+  const done=[];
+  roots.forEach(root=>{ root.updateMatrixWorld(true);
+    root.traverse(o=>{ if(!o.isMesh||o.isInstancedMesh||o.isSkinnedMesh||o.userData.keep||Array.isArray(o.material)||o.material.map||o.material.transparent) return; const m=o.material;
+      const key=[m.color.getHexString(),m.emissive?m.emissive.getHexString():'',m.emissiveIntensity||0,m.roughness,m.flatShading?1:0,m.side,o.castShadow?1:0].join('|');
+      const g=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone()); g.applyMatrix4(o.matrixWorld);
+      if(!groups.has(key)) groups.set(key,{mat:m,cast:o.castShadow,parts:[]});
+      groups.get(key).parts.push(g); done.push(o); }); });
+  done.forEach(o=>o.parent&&o.parent.remove(o));
+  for(const {mat,cast,parts} of groups.values()){
+    let n=0; parts.forEach(g=>n+=g.attributes.position.count);
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3); let k=0;
+    parts.forEach(g=>{ pos.set(g.attributes.position.array,k*3); nor.set(g.attributes.normal.array,k*3); k+=g.attributes.position.count; g.dispose(); });
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('normal',new THREE.BufferAttribute(nor,3)); geo.computeBoundingSphere();
+    const mesh=new THREE.Mesh(geo,mat); mesh.castShadow=cast; mesh.receiveShadow=true; mesh.matrixAutoUpdate=false; scene.add(mesh); }
+}
+mergeStatic(STATIC);
 window.__load&&window.__load(70,'正在佈置紀念站…');
 { const imgs=ANIMALS.map(a=>'images/'+a.id+'.jpg'); let n=0;
   imgs.forEach(src=>{ const im=new Image(); im.onload=im.onerror=()=>{ n++; window.__load&&window.__load(70+Math.round(n/imgs.length*25),'正在請動物們就位…'); if(n===imgs.length) firstFrameDone=false; }; im.src=src; }); }

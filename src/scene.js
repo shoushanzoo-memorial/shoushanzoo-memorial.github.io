@@ -1,9 +1,9 @@
 /* ---------- 場景 ---------- */
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));   // 高解析度螢幕上限 1.5 倍：肉眼幾乎看不出差別，但省很多運算
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#95cfea');
 scene.fog = new THREE.Fog('#e3f1f6', 70, 150);
@@ -39,7 +39,7 @@ scene.add(new THREE.HemisphereLight('#e8f4ff', '#6b7a52', 1.15));
 scene.add(new THREE.AmbientLight('#ffffff', .25));
 const sun = new THREE.DirectionalLight('#fff3dc', 1.6);
 sun.position.set(-18, 22, 10); sun.castShadow = true; sun.shadow.mapSize.set(1024,1024);
-sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-25,right:25,top:25,bottom:-25}); scene.add(sun);
+Object.assign(sun.shadow.camera,{left:-25,right:25,top:25,bottom:-25}); scene.add(sun);
 
 // 水面：三層三色的波浪，一層一層往外，各自起伏
 const waterU={uTime:{value:0}};
@@ -77,6 +77,8 @@ trunk.position.y=1.6; trunk.castShadow=true; tree.add(trunk);
   m.position.set(x,y,z); m.castShadow=true; tree.add(m); });
 scene.add(tree);
 
+// 不會動的花草樹圍籬：先照常建立，最後由 mergeStatic() 依顏色合併（繪圖次數從上千次降到幾十次）
+const STATIC=[]; const __staticStart=scene.children.length;
 // 散落的樹與石頭（程式拼出）
 const rnd = (a,b)=>a+Math.random()*(b-a);
 for(let i=0;i<34;i++){
@@ -102,4 +104,4 @@ function grassTuft(x,z){ const g=new THREE.Group(); g.position.set(x,0,z); const
 for(let i=0;i<14;i++){const a=i/14*Math.PI*2+rnd(-.15,.15),r=rnd(3.2,6.4); flowerBush(Math.cos(a)*r,Math.sin(a)*r,rnd(.32,.5));}
 for(let i=0;i<8;i++){const a=i/8*Math.PI*2; flowerBush(Math.cos(a)*2.1,Math.sin(a)*2.1,.26);}   // 紀念樹下圍一圈小花
 for(let i=0;i<40;i++){const a=rnd(0,Math.PI*2),r=rnd(2.4,6.8); grassTuft(Math.cos(a)*r,Math.sin(a)*r);}
-
+STATIC.push(...scene.children.slice(__staticStart));   // 上面這些花草樹不會動，稍後合併成少數幾個物件一次畫
